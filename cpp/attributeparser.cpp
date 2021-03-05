@@ -5,75 +5,18 @@
 #include <list>
 #include <queue>
 #include <stack>
+#include <string>
 #include <vector>
 using namespace std;
 
-bool debug = false;
+bool debug = true;
 
-queue<char> stringToQueue(string str){
+queue<char> stringToQueue(string str) {
   queue<char> newQueue;
-  for(char s : str){
+  for (char s : str) {
     newQueue.push(s);
   }
   return newQueue;
-}
-
-char pop_get(queue<char>* queue){
-  char value = queue->front();
-  queue->pop();
-  return queue->front();
-}
-
-string getNextTag() {
-  char start = 'p';
-
-  while (start != '<') {
-    cin >> start;
-    if (debug) {
-    }
-  }
-  string tag;
-  start = 'a';
-  while (isalpha(start) || start == '/') {
-    cin >> start;
-    tag.push_back(start);
-  }
-
-  if (debug) {
-    cout << "Read tag: " << tag;
-  }
-  return tag;
-}
-
-string getNextValue() {
-  char temp;
-  while (temp != '\"') {
-    cin >> temp;
-  }
-  string word;
-  cin >> temp;
-  word.push_back(temp);
-  while (temp != '\"') {
-    cin >> temp;
-    word.push_back(temp);
-  }
-  word.pop_back();
-  return word;
-}
-
-string getNextName() {
-  char temp;
-  string word;
-  while (temp != '=') {
-
-    cin >> temp;
-    if (temp == '>') {
-      return "";
-    }
-    word.push_back(temp);
-  }
-  word.pop_back();
-  return word;
 }
 
 class Attribute {
@@ -96,7 +39,14 @@ public:
         return attr.value;
       }
     }
+    return "";
   }
+  static void getTree(HrmlObject *object) {
+    cout << object->tag << endl;
+    for (HrmlObject *child : object->children) {
+      getTree(child);
+    }
+  };
 };
 
 class HrmlObjectFactory {
@@ -109,145 +59,159 @@ public:
   }
 };
 
-void getTree(HrmlObject *object) {
-  cout << object->tag << endl;
-  for (HrmlObject *child : object->children) {
-    getTree(child);
-  }
-};
-
-HrmlObject *findObjects(HrmlObject *headr, queue<string> tgs) {
-  bool childFound = false;
-
+HrmlObject *findObject(HrmlObject *headr, queue<string> tgs) {
   for (auto *child : headr->children) {
     if (child->tag == tgs.front()) {
       tgs.pop();
       if (tgs.size() <= 0) {
         return child;
       } else {
-        return findObjects(child, tgs);
+        return findObject(child, tgs);
       }
     }
   }
   return nullptr;
 }
 
+enum STATUS { TAG, NAME, VALUE };
+
 int main() {
   /* Enter your code here. Read input from STDIN. Print output to STDOUT */
+  vector<string> hrmlLines;
+  int n, q;
+  cin >> n >> q;
   string line;
-  
   HrmlObjectFactory factory;
   HrmlObject *head = factory.createHrml();
-  head->tag = "head";
-  if (debug) {
-    cout << "starting function" << endl;
-  }
-  int n;
-  int q;
   stack<HrmlObject *> stack;
   stack.push(head);
-  scanf("%d %d", &n, &q);
-  if (debug) {
-    cout << "scanned: " << n << " " << q << endl;
-  }
-  int o;
-  vector<HrmlObject *> items;
-  string tag;
-  string nextWord;
-  int counter;
-  char temp;
-  if (debug) {
-    cout << "starting main loop" << endl;
-  }
-  int open_index = 0;
-  for (int i = 0; i < n; i++) {
-    getline(cin, line);
-    tag = getNextTag();
-    if (debug) {
-      cout << "starting read tag loop" << endl;
-    }
-    if (tag[0] != '/') {
-      items.push_back(factory.createHrml());
-      items[open_index]->tag = tag;
-      counter = 0;
-      nextWord = getNextName();
-      while (nextWord[0] != '>') { // While there are more names
-        items[open_index]->attributes.emplace_back();
-        items[open_index]->attributes[counter].name = nextWord;
+  HrmlObject *currentObj;
 
-        nextWord = getNextValue();
-        items[open_index]->attributes[counter].value = nextWord;
-        nextWord = getNextName();
-        if (nextWord.length() == 0) {
-          break;
+  for (int i = 0; i <= n; i++) {
+    getline(cin, line);
+    if (line[1] != '/') {
+      STATUS status = TAG;
+      string tag;
+      string name;
+      string value;
+      Attribute cAttr;
+      bool inQuotes = false;
+      for (char s : line) {
+
+        if (status == TAG) {
+          // get tag
+          switch (s) {
+          case '<':
+            continue;
+          case '>':
+          case ' ' :
+            status = NAME;
+            currentObj = factory.createHrml();
+            currentObj->tag = tag;
+
+            break;
+          default:
+            tag.push_back(s);
+          }
+        } else if (status == NAME) {
+          // get Name
+          switch (s) {
+          case '\"':
+            inQuotes = !inQuotes;
+            break;
+          case ' ':
+            break;
+          case '=':
+            cAttr.name = name;
+            status = VALUE;
+            break;
+          default:
+            name.push_back(s);
+          }
+          // get value
+        } else if (status == VALUE) {
+          switch (s) {
+          case '\"':
+            inQuotes = !inQuotes;
+            break;
+          case ' ':
+            if (!inQuotes && value.length() > 0) {
+              // save and reset attribute
+              cAttr.value = value;
+              currentObj->attributes.push_back(cAttr);
+              cAttr.name = "";
+              cAttr.value = "";
+              name = "";
+              value = "";
+              status = NAME;
+            }
+            break;
+
+          default:
+            if (inQuotes) {
+              value.push_back(s);
+            } else {
+              // save and reset attributes
+              cAttr.value = value;
+              currentObj->attributes.push_back(cAttr);
+              cAttr.name = "";
+              cAttr.value = "";
+              name = "";
+              value = "";
+              status = NAME;
+
+              break;
+            }
+          }
         }
-        counter++;
       }
-      stack.push(items[open_index]);
-      open_index++;
+      if (line.length() > 0) {
+        stack.push(currentObj);
+      }
 
     } else {
       HrmlObject *child = stack.top();
       stack.pop();
-      HrmlObject *parent = stack.top();
-      parent->children.push_back(child);
-      if (debug) {
-        getTree(head);
-      }
+      stack.top()->children.push_back(child);
     }
-  };
-  // parsing queries
+  }
+  enum QSTATUS { TAGS, ATTR };
   for (int i = 0; i < q; i++) {
-    bool error;
-    string currentTag;
+    getline(cin, line);
+    string tag;
     queue<string> tags;
-    // get tags
-    temp = 'b';
-    while (temp != '~') {
-      cin >> temp;
-
-      if (temp == '.' || temp == '~') {
-        tags.push(currentTag);
-        currentTag = "";
-      } else if (temp == '>') {
-        continue;
-      } else if (temp == '\n') {
-        error = true;
+    string attr;
+    QSTATUS status = TAGS;
+    for (char s : line) {
+      switch (status) {
+      case TAGS:
+        switch (s) {
+        case '.':
+          tags.push(tag);
+          tag = "";
+          break;
+        case '~':
+          tags.push(tag);
+          tag = "";
+          status = ATTR;
+          break;
+        default:
+          tag.push_back(s);
+        }
         break;
-      } else {
-        currentTag.push_back(temp);
+      case ATTR:
+        attr.push_back(s);
+        break;
       }
     }
-    if (error) {
-      cout << "Not Found!" << endl;
-      break;
+    string output = "";
+    HrmlObject *qResult = findObject(head, tags);
+    if (qResult) {
+      output = qResult->getAttribute(attr);
     }
-
-    string nextTag = "";
-    // get attribute names
-    // at this point I realized that you can getline *facepalm*
-    string line;
-    temp = 'b';
-    // currentAttribute should contain potatotag1
-    
-    string attribute = line;
-    HrmlObject *object;
-    object = findObjects(head, tags);
-    if (object->tag == "") {
-      cout << "Not Found!" << endl;
-    }
-    if (debug) {
-      cout << object->attributes.capacity();
-    }
-    bool valueFound = false;
-    // find value
-    for (auto attr : object->attributes) {
-      if (attr.name == attribute) {
-        cout << attr.value << endl;
-        valueFound = true;
-      }
-    }
-    if (!valueFound) {
+    if (output.length() > 0) {
+      cout << output << endl;
+    } else {
       cout << "Not Found!" << endl;
     }
   }

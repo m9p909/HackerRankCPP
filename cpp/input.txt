@@ -1,11 +1,11 @@
 6 4
-<tag1 value = "HelloWorld">
-<tag2 name = "Name1">
-</tag2>
-<tag3 potato = "Iliketrains">
-</tag3>
-</tag1>
-tag1.tag2~name
-tag1~name
-tag1~value
-tag2
+<a>
+<b name = "tag_one">
+<c name = "tag_two" value = "val_907">
+</c>
+</b>
+</a>
+a.b~name
+a.b.c~value
+a.b.c~src
+a.b.c.d~name
